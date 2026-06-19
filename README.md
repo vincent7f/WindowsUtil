@@ -32,3 +32,30 @@ The display mode should change immediately. If it does not, open **Settings → 
 - `display-first-screen-only.bat` turns off output to secondary displays and keeps the desktop on the primary monitor only.
 - `display-extend.bat` spreads the desktop across all connected displays so you can move windows between screens.
 - Both scripts require Windows 7 or later.
+
+## Move Windows to Screen 1
+
+[`move-windows-to-screen1.bat`](move-windows-to-screen1.bat) finds application windows that are **not within the primary monitor (screen 1)** and moves them onto it.
+
+This is useful when:
+
+- A window opened on a secondary monitor and you want it on the main screen
+- A monitor was disconnected and windows were left at off-screen coordinates
+
+### Usage
+
+Double-click the script, or run it from a terminal:
+
+```bat
+move-windows-to-screen1.bat
+```
+
+The script prints the title of each moved window and a summary count when finished.
+
+### Notes
+
+- **Screen 1** is the **primary monitor** set in Windows display settings (same as the display mode scripts above).
+- Only normal application windows are moved; system windows, tool windows, and child dialogs are skipped.
+- Windows are placed inside the primary monitor's working area (above the taskbar).
+- Multiple moved windows are offset slightly so they do not stack on the exact same spot.
+- Requires Windows PowerShell (included with Windows 7 and later).
