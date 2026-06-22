@@ -1,4 +1,4 @@
-"""WindowsUtil GUI - one tab per batch script feature."""
+"""WindowsUtil GUI - tabs for batch script features."""
 
 from __future__ import annotations
 
@@ -29,24 +29,21 @@ class WindowsUtilApp(tk.Tk):
         notebook = ttk.Notebook(self)
         notebook.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
 
-        first_screen_tab = ttk.Frame(notebook, padding=16)
-        extend_tab = ttk.Frame(notebook, padding=16)
+        display_tab = ttk.Frame(notebook, padding=16)
         move_tab = ttk.Frame(notebook, padding=16)
 
-        notebook.add(first_screen_tab, text="First Screen Only")
-        notebook.add(extend_tab, text="Extend Display")
+        notebook.add(display_tab, text="Display Mode")
         notebook.add(move_tab, text="Move Windows")
 
-        self._build_first_screen_tab(first_screen_tab)
-        self._build_extend_tab(extend_tab)
+        self._build_display_tab(display_tab)
         self._build_move_tab(move_tab)
 
-    def _build_first_screen_tab(self, parent: ttk.Frame) -> None:
+    def _build_display_tab(self, parent: ttk.Frame) -> None:
         ttk.Label(
             parent,
             text=(
-                "Show the desktop on the primary monitor only.\n"
-                "Equivalent to display-first-screen-only.bat (PC screen only)."
+                "Switch multi-monitor display mode using Windows DisplaySwitch.\n"
+                "Screen 1 is the primary monitor set in Windows display settings."
             ),
             wraplength=420,
             justify=tk.LEFT,
@@ -54,7 +51,7 @@ class WindowsUtilApp(tk.Tk):
 
         ttk.Button(
             parent,
-            text="Switch to First Screen Only",
+            text="First Screen Only",
             command=lambda: self._run_action(
                 "Switching to first screen only...",
                 set_first_screen_only,
@@ -63,29 +60,14 @@ class WindowsUtilApp(tk.Tk):
 
         ttk.Label(
             parent,
-            text=(
-                "Screen 1 is the primary monitor set in Windows display settings. "
-                "If the wrong monitor stays on, change the primary display in "
-                "Settings → System → Display first."
-            ),
+            text="Equivalent to display-first-screen-only.bat (PC screen only).",
             wraplength=420,
             justify=tk.LEFT,
-        ).pack(anchor=tk.W, padx=8, pady=(12, 0))
-
-    def _build_extend_tab(self, parent: ttk.Frame) -> None:
-        ttk.Label(
-            parent,
-            text=(
-                "Extend the desktop across all connected monitors.\n"
-                "Equivalent to display-extend.bat (Extend)."
-            ),
-            wraplength=420,
-            justify=tk.LEFT,
-        ).pack(anchor=tk.W, pady=(0, 16))
+        ).pack(anchor=tk.W, padx=8, pady=(0, 12))
 
         ttk.Button(
             parent,
-            text="Switch to Extend Display",
+            text="Extend Display",
             command=lambda: self._run_action(
                 "Switching to extended display...",
                 set_extend,
@@ -94,13 +76,10 @@ class WindowsUtilApp(tk.Tk):
 
         ttk.Label(
             parent,
-            text=(
-                "Spreads the desktop across all connected displays so you can "
-                "move windows between screens."
-            ),
+            text="Equivalent to display-extend.bat (Extend).",
             wraplength=420,
             justify=tk.LEFT,
-        ).pack(anchor=tk.W, padx=8, pady=(12, 0))
+        ).pack(anchor=tk.W, padx=8)
 
     def _build_move_tab(self, parent: ttk.Frame) -> None:
         ttk.Label(
