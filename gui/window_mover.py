@@ -20,6 +20,8 @@ SWP_NOACTIVATE = 0x0010
 MONITORINFOF_PRIMARY = 1
 WINDOWPLACEMENT_SIZE = 44
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+STANDARD_WINDOW_WIDTH = 1280
+STANDARD_WINDOW_HEIGHT = 960
 
 
 @dataclass(frozen=True)
@@ -167,6 +169,20 @@ def _is_application_window(hwnd: int) -> bool:
     return True
 
 
+def _apply_standard_size(width: int, height: int) -> tuple[int, int]:
+    """Expand width/height independently to the standard minimum if below it."""
+    return (
+        max(width, STANDARD_WINDOW_WIDTH),
+        max(height, STANDARD_WINDOW_HEIGHT),
+    )
+
+
+def _fit_size_to_work_area(work_area: MonitorArea, width: int, height: int) -> tuple[int, int]:
+    max_width = work_area.right - work_area.left
+    max_height = work_area.bottom - work_area.top
+    return min(width, max_width), min(height, max_height)
+
+
 def _move_window(hwnd: int, left: int, top: int, width: int, height: int) -> None:
     if user32.IsIconic(hwnd):
         placement = WINDOWPLACEMENT()
@@ -179,8 +195,8 @@ def _move_window(hwnd: int, left: int, top: int, width: int, height: int) -> Non
             user32.SetWindowPlacement(hwnd, ctypes.byref(placement))
         return
 
-    flags = SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
-    user32.SetWindowPos(hwnd, 0, left, top, 0, 0, flags)
+    flags = SWP_NOZORDER | SWP_NOACTIVATE
+    user32.SetWindowPos(hwnd, 0, left, top, width, height, flags)
 
 
 def _get_process_name(hwnd: int) -> str:
@@ -244,6 +260,8 @@ def _move_single_window(
 
     width = rect.right - rect.left
     height = rect.bottom - rect.top
+    width, height = _apply_standard_size(width, height)
+    width, height = _fit_size_to_work_area(work_area, width, height)
     target_left = work_area.left + offset
     target_top = work_area.top + offset
     left, top = work_area.clamp_position(target_left, target_top, width, height)
