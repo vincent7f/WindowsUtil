@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import ctypes
+import os
 from ctypes import wintypes
 from dataclasses import dataclass
 
 user32 = ctypes.windll.user32
+kernel32 = ctypes.windll.kernel32
 
 GWL_EXSTYLE = -20
 WS_EX_TOOLWINDOW = 0x00000080
@@ -17,6 +19,20 @@ SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 MONITORINFOF_PRIMARY = 1
 WINDOWPLACEMENT_SIZE = 44
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+
+@dataclass(frozen=True)
+class OffScreenWindow:
+    hwnd: int
+    title: str
+    process_name: str
+
+    @property
+    def label(self) -> str:
+        if self.process_name:
+            return f"{self.process_name} — {self.title}"
+        return self.title
 
 
 class RECT(ctypes.Structure):
@@ -167,37 +183,92 @@ def _move_window(hwnd: int, left: int, top: int, width: int, height: int) -> Non
     user32.SetWindowPos(hwnd, 0, left, top, 0, 0, flags)
 
 
-def move_windows_to_screen1() -> list[str]:
-    """Move windows outside the primary monitor onto screen 1."""
-    primary_bounds, work_area = _get_primary_monitor()
+def _get_process_name(hwnd: int) -> str:
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return ""
+
+    try:
+        buffer = ctypes.create_unicode_buffer(260)
+        size = wintypes.DWORD(len(buffer))
+        if kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+            return os.path.basename(buffer.value)
+    finally:
+        kernel32.CloseHandle(handle)
+    return ""
+
+
+def _is_off_screen(hwnd: int, primary_bounds: MonitorArea) -> bool:
+    rect = RECT()
+    if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+        return False
+    return not primary_bounds.intersects(_rect_to_area(rect))
+
+
+def list_off_screen_windows() -> list[OffScreenWindow]:
+    """Return application windows that are not within the primary monitor."""
+    primary_bounds, _work_area = _get_primary_monitor()
+    windows: list[OffScreenWindow] = []
+
+    @WNDENUMPROC
+    def callback(hwnd, _lparam):
+        if not _is_application_window(hwnd):
+            return True
+        if not _is_off_screen(hwnd, primary_bounds):
+            return True
+
+        windows.append(
+            OffScreenWindow(
+                hwnd=hwnd,
+                title=_get_window_title(hwnd),
+                process_name=_get_process_name(hwnd),
+            )
+        )
+        return True
+
+    user32.EnumWindows(callback, 0)
+    windows.sort(key=lambda item: item.label.casefold())
+    return windows
+
+
+def _move_single_window(
+    hwnd: int,
+    work_area: MonitorArea,
+    offset: int,
+) -> str | None:
+    rect = RECT()
+    if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+        return None
+
+    width = rect.right - rect.left
+    height = rect.bottom - rect.top
+    target_left = work_area.left + offset
+    target_top = work_area.top + offset
+    left, top = work_area.clamp_position(target_left, target_top, width, height)
+
+    _move_window(hwnd, left, top, width, height)
+    return _get_window_title(hwnd)
+
+
+def move_windows(hwnds: list[int]) -> list[str]:
+    """Move the given windows onto screen 1."""
+    _primary_bounds, work_area = _get_primary_monitor()
     moved_titles: list[str] = []
     offset = 0
     offset_step = 30
 
-    @WNDENUMPROC
-    def callback(hwnd, _lparam):
-        nonlocal offset
-        if not _is_application_window(hwnd):
-            return True
+    for hwnd in hwnds:
+        title = _move_single_window(hwnd, work_area, offset)
+        if title is not None:
+            moved_titles.append(title)
+            offset += offset_step
 
-        rect = RECT()
-        if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
-            return True
-
-        window_area = _rect_to_area(rect)
-        if primary_bounds.intersects(window_area):
-            return True
-
-        width = rect.right - rect.left
-        height = rect.bottom - rect.top
-        target_left = work_area.left + offset
-        target_top = work_area.top + offset
-        left, top = work_area.clamp_position(target_left, target_top, width, height)
-
-        _move_window(hwnd, left, top, width, height)
-        moved_titles.append(_get_window_title(hwnd))
-        offset += offset_step
-        return True
-
-    user32.EnumWindows(callback, 0)
     return moved_titles
+
+
+def move_windows_to_screen1() -> list[str]:
+    """Move all windows outside the primary monitor onto screen 1."""
+    windows = list_off_screen_windows()
+    return move_windows([window.hwnd for window in windows])
