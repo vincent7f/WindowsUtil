@@ -162,7 +162,7 @@ class WindowsUtilApp(tk.Tk):
             return
 
         for window in windows:
-            var = tk.BooleanVar(value=True)
+            var = tk.BooleanVar(value=False)
             self._window_vars[window.hwnd] = var
             ttk.Checkbutton(
                 self._window_list_inner,
@@ -204,7 +204,7 @@ class WindowsUtilApp(tk.Tk):
         if count == 0:
             self._set_move_status("No windows found outside screen 1.")
         else:
-            self._set_move_status(f"Found {count} window(s) outside screen 1. All selected by default.")
+            self._set_move_status(f"Found {count} window(s) outside screen 1.")
 
     def _on_refresh_failed(self, exc: Exception) -> None:
         self._refresh_button.configure(state=tk.NORMAL)
